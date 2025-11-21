@@ -7,6 +7,17 @@ const ACCESS_TOKEN = "EAAAl2X7OPkU9gODUndmGJXW9qaPdNgurCO0pRkHfMC3Vg79Qq64CE9ZI5
 const LOCATION_ID = "L79D8F2G84D9N";
 
 const server = http.createServer(async (req, res) => {
+  // ⭐⭐⭐ CORS FIX FOR SQUARESPACE ⭐⭐⭐
+  res.setHeader("Access-Control-Allow-Origin", "https://www.denver.dexafit.com");
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+  // Handle CORS preflight
+  if (req.method === "OPTIONS") {
+    res.writeHead(200);
+    return res.end();
+  }
+  
   if (req.method !== "POST" || req.url !== "/pay") {
     res.writeHead(404);
     return res.end("Not Found");
