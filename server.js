@@ -10,12 +10,10 @@ const ACUITY_USER_ID = process.env.ACUITY_USER_ID;
 const ACUITY_API_KEY = process.env.ACUITY_API_KEY;
 
 const server = http.createServer(async (req, res) => {
-  // ⭐⭐⭐ CORS FIX FOR SQUARESPACE ⭐⭐⭐
   res.setHeader("Access-Control-Allow-Origin", "https://www.denver.dexafit.com");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     res.writeHead(200);
     return res.end();
@@ -32,19 +30,19 @@ const server = http.createServer(async (req, res) => {
   req.on("end", async () => {
     try {
       const data = JSON.parse(body || "{}");
+
+      // ⭐ RECEIVE bookingDetails FROM FRONTEND
       const { token, amount, bookingDetails } = data;
 
-      console.log("➡️ Sending payment to Square via FETCH...");
-      console.log("Token:", token, " Amount:", amount);
+      console.log("➡️ Processing payment...");
+      console.log("Booking Details:", bookingDetails);
 
+      // ⭐ SQUARE PAYMENT PAYLOAD
       const payload = {
         source_id: token,
         idempotency_key: crypto.randomUUID(),
         location_id: LOCATION_ID,
-        amount_money: {
-          amount: amount,
-          currency: "USD",
-        }
+        amount_money: { amount, currency: "USD" }
       };
 
       const response = await fetch(SQUARE_URL, {
@@ -59,33 +57,40 @@ const server = http.createServer(async (req, res) => {
 
       const json = await response.json();
 
-      res.writeHead(response.ok ? 200 : 400, {
-        "Content-Type": "application/json"
-      });
+      // ⭐ PAYMENT SUCCESS → CREATE ACUITY APPOINTMENT
       if (response.ok && json.payment?.status === "COMPLETED") {
 
         console.log("✔ Payment successful. Creating appointment in Acuity...");
 
-        const acuityResponse = await createAcuityAppointment(bookingDetails);
+        const acuityResult = await createAcuityAppointment(bookingDetails);
+
+        console.log("✔ Appointment Created");
 
         return res.end(JSON.stringify({
           success: true,
-          payment: json.payment,
-          appointment: acuityResponse
+          squarePayment: json.payment,
+          acuityAppointment: acuityResult
         }));
       }
 
+      // ❌ PAYMENT FAILED
+      return res.end(JSON.stringify({
+        success: false,
+        message: "Payment Failed",
+        squareResponse: json
+      }));
 
     } catch (err) {
+      console.log("❌ SERVER ERROR:", err);
       res.writeHead(500, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({
         success: false,
-        error: "SERVER ERROR",
-        detail: err.message
+        error: err.message
       }));
     }
   });
 });
+
 
 async function createAcuityAppointment(booking) {
   const auth = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
