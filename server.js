@@ -9,88 +9,16 @@ const LOCATION_ID = process.env.SQUARE_LOCATION_ID;
 const ACUITY_USER_ID = process.env.ACUITY_USER_ID;
 const ACUITY_API_KEY = process.env.ACUITY_API_KEY;
 
-const server = http.createServer(async (req, res) => {
-  res.setHeader("Access-Control-Allow-Origin", "https://www.denver.dexafit.com");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    res.writeHead(200);
-    return res.end();
-  }
-
-  if (req.method !== "POST" || req.url !== "/pay") {
-    res.writeHead(404);
-    return res.end("Not Found");
-  }
-
-  let body = "";
-  req.on("data", chunk => body += chunk.toString());
-
-  req.on("end", async () => {
-    try {
-      const data = JSON.parse(body || "{}");
-
-      // ⭐ RECEIVE bookingDetails FROM FRONTEND
-      const { token, amount, bookingDetails } = data;
-
-      console.log("➡️ Processing payment...");
-      console.log("Booking Details:", bookingDetails);
-
-      // ⭐ SQUARE PAYMENT PAYLOAD
-      const payload = {
-        source_id: token,
-        idempotency_key: crypto.randomUUID(),
-        location_id: LOCATION_ID,
-        amount_money: { amount, currency: "USD" }
-      };
-
-      const response = await fetch(SQUARE_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${ACCESS_TOKEN}`,
-          "Square-Version": "2023-10-18"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const json = await response.json();
-
-      // ⭐ PAYMENT SUCCESS → CREATE ACUITY APPOINTMENT
-      if (response.ok && json.payment?.status === "COMPLETED") {
-
-        console.log("✔ Payment successful. Creating appointment in Acuity...");
-
-        const acuityResult = await createAcuityAppointment(bookingDetails);
-
-        console.log("✔ Appointment Created");
-
-        return res.end(JSON.stringify({
-          success: true,
-          squarePayment: json.payment,
-          acuityAppointment: acuityResult
-        }));
-      }
-
-      // ❌ PAYMENT FAILED
-      return res.end(JSON.stringify({
-        success: false,
-        message: "Payment Failed",
-        squareResponse: json
-      }));
-
-    } catch (err) {
-      console.log("❌ SERVER ERROR:", err);
-      res.writeHead(500, { "Content-Type": "application/json" });
-      return res.end(JSON.stringify({
-        success: false,
-        error: err.message
-      }));
-    }
+// ⭐ ALWAYS return CORS + JSON safely
+function sendJSON(res, code, data) {
+  res.writeHead(code, {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "https://www.denver.dexafit.com",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
   });
-});
-
+  res.end(JSON.stringify(data));
+}
 
 async function createAcuityAppointment(booking) {
   const auth = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
@@ -122,6 +50,77 @@ async function createAcuityAppointment(booking) {
 
   return json;
 }
+
+const server = http.createServer(async (req, res) => {
+  // Handle OPTIONS request (CORS)
+  if (req.method === "OPTIONS") {
+    return sendJSON(res, 200, { ok: true });
+  }
+
+  if (req.method !== "POST" || req.url !== "/pay") {
+    return sendJSON(res, 404, { error: "Not Found" });
+  }
+
+  let body = "";
+  req.on("data", chunk => body += chunk.toString());
+
+  req.on("end", async () => {
+    try {
+      const data = JSON.parse(body || "{}");
+      const { token, amount, bookingDetails } = data;
+
+      console.log("➡️ Payment + Booking Started");
+      console.log("Booking Details:", bookingDetails);
+
+      // ⭐ Square Payment Payload
+      const payload = {
+        source_id: token,
+        idempotency_key: crypto.randomUUID(),
+        location_id: LOCATION_ID,
+        amount_money: { amount, currency: "USD" }
+      };
+
+      // ⭐ SEND PAYMENT REQUEST
+      const response = await fetch(SQUARE_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${ACCESS_TOKEN}`,
+          "Square-Version": "2023-10-18"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const square = await response.json();
+
+      if (!response.ok || square.payment?.status !== "COMPLETED") {
+        return sendJSON(res, 400, {
+          success: false,
+          message: "Payment Failed",
+          square
+        });
+      }
+
+      console.log("✔ Payment Completed. Now Booking Appointment...");
+
+      // ⭐ Create Appointment
+      const appointment = await createAcuityAppointment(bookingDetails);
+
+      return sendJSON(res, 200, {
+        success: true,
+        squarePayment: square.payment,
+        acuityAppointment: appointment
+      });
+
+    } catch (err) {
+      console.error("❌ SERVER ERROR:", err.message);
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  });
+});
 
 server.listen(3000, () => {
   console.log("🔥 RUNNING — Square Payments (NO SDK, FULLY STABLE) on port 3000");
