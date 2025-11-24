@@ -20,7 +20,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(200);
     return res.end();
   }
-  
+
   if (req.method !== "POST" || req.url !== "/pay") {
     res.writeHead(404);
     return res.end("Not Found");
@@ -32,7 +32,7 @@ const server = http.createServer(async (req, res) => {
   req.on("end", async () => {
     try {
       const data = JSON.parse(body || "{}");
-      const { token, amount } = data;
+      const { token, amount, bookingDetails } = data;
 
       console.log("➡️ Sending payment to Square via FETCH...");
       console.log("Token:", token, " Amount:", amount);
@@ -62,10 +62,19 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(response.ok ? 200 : 400, {
         "Content-Type": "application/json"
       });
-      return res.end(JSON.stringify({
-        success: response.ok,
-        data: json
-      }));
+      if (response.ok && json.payment?.status === "COMPLETED") {
+
+        console.log("✔ Payment successful. Creating appointment in Acuity...");
+
+        const acuityResponse = await createAcuityAppointment(bookingDetails);
+
+        return res.end(JSON.stringify({
+          success: true,
+          payment: json.payment,
+          appointment: acuityResponse
+        }));
+      }
+
 
     } catch (err) {
       res.writeHead(500, { "Content-Type": "application/json" });
