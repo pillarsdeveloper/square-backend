@@ -30,7 +30,13 @@ async function createAcuityAppointment(booking) {
     lastName: booking.lastName,
     email: booking.email,
     phone: booking.phone,
-    calendarID: booking.calendarID
+    calendarID: booking.calendarID,
+    fields: [
+      {
+        id: 15140822,
+        value: "yes"
+      }
+    ]
   };
 
   const response = await fetch("https://acuityscheduling.com/api/v1/appointments", {
