@@ -85,6 +85,34 @@ async function getAcuityAvailability(month, appointmentTypeID) {
   return json;
 }
 
+async function getAcuityAppointmentTypes() {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+
+  const url = `https://acuityscheduling.com/api/v1/appointment-types`;
+
+  console.log("Calling Appointment Types URL:", url);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Accept": "application/json",
+      "User-Agent": "PostmanRuntime/7.49.1",
+      "Connection": "keep-alive"
+    }
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    console.error("Acuity Appointment Types Error:", json);
+    throw new Error(json?.message || "Failed to fetch appointment types");
+  }
+
+  return json;
+}
+
+
 async function getAcuityTimes(date, appointmentTypeID) {
   const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
 
@@ -193,6 +221,25 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // --------------------------------------------------------
+  // NEW ROUTE: GET /appointment-types
+  // --------------------------------------------------------
+  if (req.method === "GET" && req.url.startsWith("/appointment-types")) {
+    try {
+      const types = await getAcuityAppointmentTypes();
+
+      return sendJSON(res, 200, {
+        success: true,
+        appointmentTypes: types
+      });
+
+    } catch (err) {
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  }
 
   if (req.method === "POST" && req.url === "/pay") {
     let body = "";
