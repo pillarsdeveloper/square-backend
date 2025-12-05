@@ -165,6 +165,31 @@ async function getAcuityAddons() {
   return json;
 }
 
+async function getAcuityProducts() {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+  const url = `https://acuityscheduling.com/api/v1/products`;
+
+  console.log("Calling PRODUCTS URL:", url);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Accept": "application/json"
+    }
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    console.error("Acuity Products Error:", json);
+    throw new Error(json?.message || "Failed to fetch Acuity products");
+  }
+
+  return json;   // array of gift cards, packages, bundles
+}
+
+
 // --------------------------------------------
 // HTTP Server
 // --------------------------------------------
@@ -275,6 +300,26 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, {
         success: true,
         addons
+      });
+
+    } catch (err) {
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  }
+
+  // --------------------------------------------------------
+  // NEW ROUTE: GET /products
+  // --------------------------------------------------------
+  if (req.method === "GET" && req.url.startsWith("/products")) {
+    try {
+      const products = await getAcuityProducts();
+
+      return sendJSON(res, 200, {
+        success: true,
+        products
       });
 
     } catch (err) {
