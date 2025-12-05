@@ -140,6 +140,30 @@ async function getAcuityTimes(date, appointmentTypeID) {
   return json;
 }
 
+async function getAcuityAddons() {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+
+  const url = `https://acuityscheduling.com/api/v1/appointment-addons`;
+
+  console.log("Calling ADDONS URL:", url);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Accept": "application/json"
+    }
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    console.error("Acuity Addons Error:", json);
+    throw new Error(json?.message || "Failed to fetch Acuity addons");
+  }
+
+  return json;
+}
 
 // --------------------------------------------
 // HTTP Server
@@ -240,6 +264,27 @@ const server = http.createServer(async (req, res) => {
       });
     }
   }
+
+  // --------------------------------------------------------
+  // NEW ROUTE: GET /addons
+  // --------------------------------------------------------
+  if (req.method === "GET" && req.url.startsWith("/appointment-addons")) {
+    try {
+      const addons = await getAcuityAddons();
+
+      return sendJSON(res, 200, {
+        success: true,
+        addons
+      });
+
+    } catch (err) {
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  }
+
 
   if (req.method === "POST" && req.url === "/pay") {
     let body = "";
