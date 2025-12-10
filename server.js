@@ -10,6 +10,7 @@ const LOCATION_ID = process.env.SQUARE_LOCATION_ID;
 
 const ACUITY_USER_ID = process.env.ACUITY_USER_ID;
 const ACUITY_API_KEY = process.env.ACUITY_API_KEY;
+const ACUITY_OWNER_ID = process.env.ACUITY_OWNER_ID;
 
 // --------------------------------------------
 // Helper: Global JSON response
@@ -113,11 +114,25 @@ async function getAcuityAppointmentTypes() {
 }
 
 
-async function getAcuityTimes(date, appointmentTypeID) {
+async function getAcuityTimes(date, appointmentTypeId, calendarId = "any", addonIds = []) {
   const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
 
-  const url = `https://acuityscheduling.com/api/v1/availability/times?date=${date}&appointmentTypeID=${appointmentTypeID}`;
+  // Build URL with required parameters
+  const urlObj = new URL("https://app.acuityscheduling.com/api/scheduling/v1/availability/times");
+  urlObj.searchParams.set("owner", ACUITY_OWNER_ID);
+  urlObj.searchParams.set("appointmentTypeId", appointmentTypeId);
+  urlObj.searchParams.set("calendarId", calendarId);
+  urlObj.searchParams.set("startDate", date);
+  urlObj.searchParams.set("timezone", "America/Denver");
 
+  // Add optional addonIds if provided
+  if (addonIds && addonIds.length > 0) {
+    addonIds.forEach(id => {
+      urlObj.searchParams.append("addonIds[]", id);
+    });
+  }
+
+  const url = urlObj.toString();
   console.log("Calling TIMES URL:", url);
 
   const response = await fetch(url, {
@@ -235,7 +250,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --------------------------------------------------------
-  // NEW ROUTE: GET /times?date=YYYY-MM-DD&appointmentTypeID=12345
+  // NEW ROUTE: GET /times?date=YYYY-MM-DD&appointmentTypeID=12345&calendarId=any&addonIds[]=12345
   // --------------------------------------------------------
   if (req.method === "GET" && req.url.startsWith("/times")) {
     const host = req.headers.host || "localhost:3000";
@@ -243,9 +258,15 @@ const server = http.createServer(async (req, res) => {
 
     const date = urlObj.searchParams.get("date");
     const appointmentTypeID = urlObj.searchParams.get("appointmentTypeID");
+    const calendarId = urlObj.searchParams.get("calendarId") || "any";
+    
+    // Extract addonIds[] array from query params
+    const addonIds = urlObj.searchParams.getAll("addonIds[]").filter(id => id && id.trim() !== "");
 
     console.log("date:", date);
     console.log("appointmentTypeID:", appointmentTypeID);
+    console.log("calendarId:", calendarId);
+    console.log("addonIds:", addonIds);
 
     if (!date || !appointmentTypeID) {
       return sendJSON(res, 400, {
@@ -255,7 +276,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      const times = await getAcuityTimes(date, appointmentTypeID);
+      const times = await getAcuityTimes(date, appointmentTypeID, calendarId, addonIds);
 
       return sendJSON(res, 200, {
         success: true,
