@@ -205,7 +205,6 @@ async function getAcuityProducts() {
 }
 
 async function getAcuityOrderSummary(
-  owner,
   selectedAppointments,
   tipAmount,
   certificateCode,
@@ -216,8 +215,9 @@ async function getAcuityOrderSummary(
 
   const url = "https://app.acuityscheduling.com/api/scheduling/v1/appointments/order-summary";
 
+  // Owner ALWAYS from env
   const bodyData = {
-    owner,
+    owner: ACUITY_OWNER_ID,
     selectedAppointments,
     tipAmount,
     certificateCode,
@@ -240,11 +240,9 @@ async function getAcuityOrderSummary(
 
   const json = await response.json();
 
-  // 🔥 If Acuity returns error → forward EXACT same object
   if (!response.ok) {
     console.error("Acuity Order Summary Error:", json);
 
-    // Throw full error object upward
     throw {
       status: response.status,
       acuityError: json
@@ -253,6 +251,7 @@ async function getAcuityOrderSummary(
 
   return json;
 }
+
 
 
 // --------------------------------------------
@@ -396,7 +395,6 @@ const server = http.createServer(async (req, res) => {
         const jsonBody = JSON.parse(body);
 
         const {
-          owner,
           selectedAppointments,
           tipAmount = 0,
           certificateCode = "",
@@ -404,15 +402,15 @@ const server = http.createServer(async (req, res) => {
           bookingEmail
         } = jsonBody;
 
-        if (!owner || !selectedAppointments || !bookingEmail) {
+        // Owner NOT required from payload
+        if (!selectedAppointments || !bookingEmail) {
           return sendJSON(res, 400, {
             success: false,
-            message: "owner, selectedAppointments, and bookingEmail are required"
+            message: "selectedAppointments and bookingEmail are required"
           });
         }
 
         const summary = await getAcuityOrderSummary(
-          owner,
           selectedAppointments,
           tipAmount,
           certificateCode,
@@ -426,15 +424,13 @@ const server = http.createServer(async (req, res) => {
         });
 
       } catch (err) {
-        // 🔥 If error is from Acuity Scheduling API
         if (err.acuityError) {
           return sendJSON(res, err.status || 400, {
             success: false,
-            acuityError: err.acuityError   // 🔥 EXACT SAME ERROR AS ACUITY
+            acuityError: err.acuityError
           });
         }
 
-        // Generic backend error
         return sendJSON(res, 500, {
           success: false,
           error: err.message || "Unexpected server error"
@@ -442,7 +438,6 @@ const server = http.createServer(async (req, res) => {
       }
     });
   }
-
 
   // --------------------------------------------------------
   // NEW ROUTE: GET /products
