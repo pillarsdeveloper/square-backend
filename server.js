@@ -204,6 +204,56 @@ async function getAcuityProducts() {
   return json;   // array of gift cards, packages, bundles
 }
 
+async function getAcuityOrderSummary(
+  owner,
+  selectedAppointments,
+  tipAmount,
+  certificateCode,
+  additionalAmount,
+  bookingEmail
+) {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+
+  const url = "https://app.acuityscheduling.com/api/scheduling/v1/appointments/order-summary";
+
+  const bodyData = {
+    owner,
+    selectedAppointments,
+    tipAmount,
+    certificateCode,
+    additionalAmount,
+    bookingEmail
+  };
+
+  console.log("Calling ORDER SUMMARY URL:", url);
+  console.log("Request Body:", JSON.stringify(bodyData, null, 2));
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(bodyData)
+  });
+
+  const json = await response.json();
+
+  // 🔥 If Acuity returns error → forward EXACT same object
+  if (!response.ok) {
+    console.error("Acuity Order Summary Error:", json);
+
+    // Throw full error object upward
+    throw {
+      status: response.status,
+      acuityError: json
+    };
+  }
+
+  return json;
+}
+
 
 // --------------------------------------------
 // HTTP Server
@@ -259,7 +309,7 @@ const server = http.createServer(async (req, res) => {
     const date = urlObj.searchParams.get("date");
     const appointmentTypeID = urlObj.searchParams.get("appointmentTypeID");
     const calendarId = urlObj.searchParams.get("calendarId") || "any";
-    
+
     // Extract addonIds[] array from query params
     const addonIds = urlObj.searchParams.getAll("addonIds[]").filter(id => id && id.trim() !== "");
 
@@ -330,6 +380,69 @@ const server = http.createServer(async (req, res) => {
       });
     }
   }
+
+  // --------------------------------------------------------
+  // NEW ROUTE: POST /order-summary
+  // --------------------------------------------------------
+  if (req.method === "POST" && req.url.startsWith("/order-summary")) {
+    let body = "";
+
+    req.on("data", chunk => {
+      body += chunk;
+    });
+
+    req.on("end", async () => {
+      try {
+        const jsonBody = JSON.parse(body);
+
+        const {
+          owner,
+          selectedAppointments,
+          tipAmount = 0,
+          certificateCode = "",
+          additionalAmount = 0,
+          bookingEmail
+        } = jsonBody;
+
+        if (!owner || !selectedAppointments || !bookingEmail) {
+          return sendJSON(res, 400, {
+            success: false,
+            message: "owner, selectedAppointments, and bookingEmail are required"
+          });
+        }
+
+        const summary = await getAcuityOrderSummary(
+          owner,
+          selectedAppointments,
+          tipAmount,
+          certificateCode,
+          additionalAmount,
+          bookingEmail
+        );
+
+        return sendJSON(res, 200, {
+          success: true,
+          summary
+        });
+
+      } catch (err) {
+        // 🔥 If error is from Acuity Scheduling API
+        if (err.acuityError) {
+          return sendJSON(res, err.status || 400, {
+            success: false,
+            acuityError: err.acuityError   // 🔥 EXACT SAME ERROR AS ACUITY
+          });
+        }
+
+        // Generic backend error
+        return sendJSON(res, 500, {
+          success: false,
+          error: err.message || "Unexpected server error"
+        });
+      }
+    });
+  }
+
 
   // --------------------------------------------------------
   // NEW ROUTE: GET /products
