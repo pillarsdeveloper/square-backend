@@ -306,6 +306,42 @@ async function placeAcuityGiftOrder(orderData) {
   return json;
 }
 
+async function getAcuityGiftOrderSummary(data) {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+
+  const url = `https://app.acuityscheduling.com/api/scheduling/v1/catalog/order-summary`;
+
+  console.log("Calling Acuity Order Summary:", url);
+
+  const payload = {
+    owner: process.env.ACUITY_OWNER_ID,       // always from backend
+    orderItems: data.orderItems || []
+  };
+
+  // Optional fields
+  if (data.couponCode) payload.couponCode = data.couponCode;
+  if (data.email) payload.email = Array.isArray(data.email) ? data.email : [data.email];
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    console.error("Acuity Order Summary Error:", json);
+    throw new Error(json?.message || "Failed to fetch order summary");
+  }
+
+  return json;
+}
+
 
 // --------------------------------------------
 // HTTP Server
@@ -504,6 +540,28 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, {
         success: true,
         order: result
+      });
+
+    } catch (err) {
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  }
+
+  // --------------------------------------------------------
+  // POST /acuity/order-summary
+  // --------------------------------------------------------
+  if (req.method === "POST" && req.url === "/acuity/gift-order-summary") {
+    try {
+      const body = await getRequestBody(req);
+
+      const summary = await getAcuityGiftOrderSummary(body);
+
+      return sendJSON(res, 200, {
+        success: true,
+        summary
       });
 
     } catch (err) {
