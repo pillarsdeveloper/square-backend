@@ -25,6 +25,22 @@ function sendJSON(res, code, data) {
   res.end(JSON.stringify(data));
 }
 
+function getRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = "";
+    req.on("data", chunk => {
+      body += chunk;
+    });
+    req.on("end", () => {
+      try {
+        resolve(JSON.parse(body));
+      } catch (err) {
+        reject("Invalid JSON body");
+      }
+    });
+  });
+}
+
 // --------------------------------------------
 // Create Appointment (Only for normal booking)
 // --------------------------------------------
@@ -252,6 +268,43 @@ async function getAcuityOrderSummary(
   return json;
 }
 
+async function placeAcuityGiftOrder(orderData) {
+  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+
+  const url = `https://app.acuityscheduling.com/api/scheduling/v1/catalog/place-order`;
+
+  console.log("Calling Acuity Gift/Package Order:", url);
+
+  const payload = {
+    firstName: orderData.firstName,
+    lastName: orderData.lastName,
+    email: Array.isArray(orderData.email) ? orderData.email : [orderData.email],
+    phone: orderData.phone,
+    smsOptIn: false,
+    owner: process.env.ACUITY_OWNER_ID,
+    couponCode: orderData.couponCode || "",
+    orderItems: orderData.orderItems || []
+  };
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Authorization": `Basic ${authToken}`,
+      "Content-Type": "application/json",
+      "Accept": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const json = await response.json();
+
+  if (!response.ok) {
+    console.error("Acuity Gift Order Error:", json);
+    throw new Error(json?.message || "Failed to place gift/package order");
+  }
+
+  return json;
+}
 
 
 // --------------------------------------------
@@ -438,6 +491,29 @@ const server = http.createServer(async (req, res) => {
       }
     });
   }
+
+  // --------------------------------------------------------
+  // POST /acuity/gift-order
+  // --------------------------------------------------------
+  if (req.method === "POST" && req.url === "/acuity/gift-order") {
+    try {
+      const body = await getRequestBody(req);
+
+      const result = await placeAcuityGiftOrder(body);
+
+      return sendJSON(res, 200, {
+        success: true,
+        order: result
+      });
+
+    } catch (err) {
+      return sendJSON(res, 500, {
+        success: false,
+        error: err.message
+      });
+    }
+  }
+
 
   // --------------------------------------------------------
   // NEW ROUTE: GET /products
