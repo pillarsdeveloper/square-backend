@@ -633,18 +633,18 @@ const server = http.createServer(async (req, res) => {
         //   });
         // }
 
-        console.log("✔ Payment Completed!");
+        // console.log("✔ Payment Completed!");
 
         // ⭐ CASE 1 — BUNDLE / PACKAGE (NO APPOINTMENT NEEDED)
-        if (bookingDetails.isPackage === true) {
-          console.log("➡ Package Purchase Completed");
+        // if (bookingDetails.isPackage === true) {
+        //   console.log("➡ Package Purchase Completed");
 
-          return sendJSON(res, 200, {
-            success: true,
-            // squarePayment: square.payment,
-            message: "Package purchased successfully"
-          });
-        }
+        //   return sendJSON(res, 200, {
+        //     success: true,
+        //     // squarePayment: square.payment,
+        //     message: "Package purchased successfully"
+        //   });
+        // }
 
         // ⭐ CASE 2 — NORMAL APPOINTMENT
         console.log("➡ Creating Acuity Appointment...");
