@@ -593,67 +593,23 @@ const server = http.createServer(async (req, res) => {
   }
 
 
+  // Only for normal booking 
   if (req.method === "POST" && req.url === "/appointments/checkout") {
     let body = "";
+
     req.on("data", chunk => body += chunk.toString());
 
     req.on("end", async () => {
       try {
-        const data = JSON.parse(body || "{}");
-        const { token, amount, bookingDetails } = data;
+        const bookingDetails = JSON.parse(body || "{}");
 
-        console.log("➡️ Payment Started");
-        console.log("Booking Details:", bookingDetails);
-
-        // // Square Payment Payload
-        // const payload = {
-        //   source_id: token,
-        //   idempotency_key: crypto.randomUUID(),
-        //   location_id: LOCATION_ID,
-        //   amount_money: { amount, currency: "USD" }
-        // };
-
-        // const response = await fetch(SQUARE_URL, {
-        //   method: "POST",
-        //   headers: {
-        //     "Content-Type": "application/json",
-        //     "Authorization": `Bearer ${ACCESS_TOKEN}`,
-        //     "Square-Version": "2023-10-18"
-        //   },
-        //   body: JSON.stringify(payload)
-        // });
-
-        // const square = await response.json();
-
-        // if (!response.ok || square.payment?.status !== "COMPLETED") {
-        //   return sendJSON(res, 400, {
-        //     success: false,
-        //     message: "Payment Failed",
-        //     square
-        //   });
-        // }
-
-        // console.log("✔ Payment Completed!");
-
-        // ⭐ CASE 1 — BUNDLE / PACKAGE (NO APPOINTMENT NEEDED)
-        // if (bookingDetails.isPackage === true) {
-        //   console.log("➡ Package Purchase Completed");
-
-        //   return sendJSON(res, 200, {
-        //     success: true,
-        //     // squarePayment: square.payment,
-        //     message: "Package purchased successfully"
-        //   });
-        // }
-
-        // ⭐ CASE 2 — NORMAL APPOINTMENT
         console.log("➡ Creating Acuity Appointment...");
+        console.log("Booking Details:", bookingDetails);
 
         const appointment = await createAcuityAppointment(bookingDetails);
 
         return sendJSON(res, 200, {
           success: true,
-          // squarePayment: square.payment,
           acuityAppointment: appointment
         });
 
@@ -666,6 +622,82 @@ const server = http.createServer(async (req, res) => {
       }
     });
   }
+
+
+  // // Booking API with Square Payment Integration & Acuity Appointment Creation
+  //   if (req.method === "POST" && req.url === "/appointments/checkout") {
+  //     let body = "";
+  //     req.on("data", chunk => body += chunk.toString());
+
+  //     req.on("end", async () => {
+  //       try {
+  //         const data = JSON.parse(body || "{}");
+  //         const { token, amount, bookingDetails } = data;
+
+  //         console.log("➡️ Payment Started");
+  //         console.log("Booking Details:", bookingDetails);
+
+  //         // Square Payment Payload
+  //         const payload = {
+  //           source_id: token,
+  //           idempotency_key: crypto.randomUUID(),
+  //           location_id: LOCATION_ID,
+  //           amount_money: { amount, currency: "USD" }
+  //         };
+
+  //         const response = await fetch(SQUARE_URL, {
+  //           method: "POST",
+  //           headers: {
+  //             "Content-Type": "application/json",
+  //             "Authorization": `Bearer ${ACCESS_TOKEN}`,
+  //             "Square-Version": "2023-10-18"
+  //           },
+  //           body: JSON.stringify(payload)
+  //         });
+
+  //         const square = await response.json();
+
+  //         if (!response.ok || square.payment?.status !== "COMPLETED") {
+  //           return sendJSON(res, 400, {
+  //             success: false,
+  //             message: "Payment Failed",
+  //             square
+  //           });
+  //         }
+
+  //         console.log("✔ Payment Completed!");
+
+  //         // ⭐ CASE 1 — BUNDLE / PACKAGE (NO APPOINTMENT NEEDED)
+  //         if (bookingDetails.isPackage === true) {
+  //           console.log("➡ Package Purchase Completed");
+
+  //           return sendJSON(res, 200, {
+  //             success: true,
+  //             squarePayment: square.payment,
+  //             message: "Package purchased successfully"
+  //           });
+  //         }
+
+  //         // ⭐ CASE 2 — NORMAL APPOINTMENT
+  //         console.log("➡ Creating Acuity Appointment...");
+
+  //         const appointment = await createAcuityAppointment(bookingDetails);
+
+  //         return sendJSON(res, 200, {
+  //           success: true,
+  //           squarePayment: square.payment,
+  //           acuityAppointment: appointment
+  //         });
+
+  //       } catch (err) {
+  //         console.error("❌ SERVER ERROR:", err.message);
+  //         return sendJSON(res, 500, {
+  //           success: false,
+  //           error: err.message
+  //         });
+  //       }
+  //     });
+  //   }
 
 });
 
