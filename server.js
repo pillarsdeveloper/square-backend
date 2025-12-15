@@ -605,33 +605,33 @@ const server = http.createServer(async (req, res) => {
         console.log("➡️ Payment Started");
         console.log("Booking Details:", bookingDetails);
 
-        // Square Payment Payload
-        const payload = {
-          source_id: token,
-          idempotency_key: crypto.randomUUID(),
-          location_id: LOCATION_ID,
-          amount_money: { amount, currency: "USD" }
-        };
+        // // Square Payment Payload
+        // const payload = {
+        //   source_id: token,
+        //   idempotency_key: crypto.randomUUID(),
+        //   location_id: LOCATION_ID,
+        //   amount_money: { amount, currency: "USD" }
+        // };
 
-        const response = await fetch(SQUARE_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${ACCESS_TOKEN}`,
-            "Square-Version": "2023-10-18"
-          },
-          body: JSON.stringify(payload)
-        });
+        // const response = await fetch(SQUARE_URL, {
+        //   method: "POST",
+        //   headers: {
+        //     "Content-Type": "application/json",
+        //     "Authorization": `Bearer ${ACCESS_TOKEN}`,
+        //     "Square-Version": "2023-10-18"
+        //   },
+        //   body: JSON.stringify(payload)
+        // });
 
-        const square = await response.json();
+        // const square = await response.json();
 
-        if (!response.ok || square.payment?.status !== "COMPLETED") {
-          return sendJSON(res, 400, {
-            success: false,
-            message: "Payment Failed",
-            square
-          });
-        }
+        // if (!response.ok || square.payment?.status !== "COMPLETED") {
+        //   return sendJSON(res, 400, {
+        //     success: false,
+        //     message: "Payment Failed",
+        //     square
+        //   });
+        // }
 
         console.log("✔ Payment Completed!");
 
@@ -641,7 +641,7 @@ const server = http.createServer(async (req, res) => {
 
           return sendJSON(res, 200, {
             success: true,
-            squarePayment: square.payment,
+            // squarePayment: square.payment,
             message: "Package purchased successfully"
           });
         }
@@ -653,7 +653,7 @@ const server = http.createServer(async (req, res) => {
 
         return sendJSON(res, 200, {
           success: true,
-          squarePayment: square.payment,
+          // squarePayment: square.payment,
           acuityAppointment: appointment
         });
 
