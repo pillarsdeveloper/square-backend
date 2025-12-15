@@ -610,7 +610,7 @@ const server = http.createServer(async (req, res) => {
 
         return sendJSON(res, 200, {
           success: true,
-          acuityAppointment: appointment
+          appointment: appointment
         });
 
       } catch (err) {
