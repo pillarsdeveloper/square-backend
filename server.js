@@ -48,8 +48,8 @@ async function createAcuityAppointment(booking) {
   const auth = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
 
   const appointmentPayload = {
-    appointmentTypeID: booking.appointmentType,
-    datetime: `${booking.date}T${booking.time}:00`,
+    appointmentTypeID: booking.appointmentTypeID,
+    datetime: booking.datetime,
     firstName: booking.firstName,
     lastName: booking.lastName,
     email: booking.email,
@@ -59,6 +59,18 @@ async function createAcuityAppointment(booking) {
     ]
   };
 
+  // ✅ ADDONS — normalize safely
+  if (booking.addonIDs) {
+    if (Array.isArray(booking.addonIDs)) {
+      appointmentPayload.addonIDs = booking.addonIDs.map(Number);
+    } else {
+      // single addon as string/number → convert to array
+      appointmentPayload.addonIDs = [Number(booking.addonIDs)];
+    }
+  }
+
+
+  console.log("Calling Acuity Appointment Creation:", appointmentPayload);
   const response = await fetch("https://acuityscheduling.com/api/v1/appointments", {
     method: "POST",
     headers: {
