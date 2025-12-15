@@ -54,7 +54,6 @@ async function createAcuityAppointment(booking) {
     lastName: booking.lastName,
     email: booking.email,
     phone: booking.phone,
-    calendarID: booking.calendarID,
     fields: [
       { id: 15140822, value: "yes" } // Terms field
     ]
