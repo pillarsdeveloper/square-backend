@@ -594,7 +594,7 @@ const server = http.createServer(async (req, res) => {
   }
 
 
-  if (req.method === "POST" && req.url === "/pay") {
+  if (req.method === "POST" && req.url === "/appointments/checkout") {
     let body = "";
     req.on("data", chunk => body += chunk.toString());
 
