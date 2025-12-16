@@ -293,7 +293,7 @@ async function placeAcuityGiftOrder(orderData) {
     phone: orderData.phone,
     smsOptIn: false,
     owner: process.env.ACUITY_OWNER_ID,
-    couponCode: orderData.couponCode || "",
+    couponCode: orderData.couponCode || "Ashok1234567890",
     orderItems: orderData.orderItems || []
   };
 
