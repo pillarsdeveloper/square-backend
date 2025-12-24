@@ -87,31 +87,45 @@ async function createAcuityAppointment(booking) {
   return json;
 }
 
-async function getAcuityAvailability(month, appointmentTypeID) {
-  const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+async function getAcuityAvailability(appointmentTypeID, month) {
+  const authToken = Buffer
+    .from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`)
+    .toString("base64");
 
-  const url = `https://acuityscheduling.com/api/v1/availability/dates?month=${month}&appointmentTypeID=${appointmentTypeID}`;
+  const owner = process.env.ACUITY_OWNER_ID;
+
+  let url =
+    `https://app.acuityscheduling.com/api/scheduling/v1/availability/month` +
+    `?owner=${owner}` +
+    `&appointmentTypeId=${appointmentTypeID}` +
+    `&calendarId=any` +
+    `&timezone=America/Denver`;
+
+  // month optional rakha
+  if (month) {
+    url += `&month=${month}`;
+  }
 
   console.log("Calling Acuity URL:", url);
-  console.log("Auth Header:", `Basic ${authToken}`);
 
   const response = await fetch(url, {
     method: "GET",
     headers: {
-      "Authorization": `Basic ${authToken}`,
-      "Accept": "application/json"
+      Authorization: `Basic ${authToken}`,
+      Accept: "application/json"
     }
   });
 
   const json = await response.json();
 
   if (!response.ok) {
-    console.error("Acuity Error Response:", json);
-    throw new Error(json?.message || "Failed to fetch Acuity availability");
+    console.error("Acuity Error:", json);
+    throw new Error(json?.message || "Failed to fetch availability");
   }
 
   return json;
 }
+
 
 async function getAcuityAppointmentTypes() {
   const authToken = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
@@ -370,24 +384,25 @@ const server = http.createServer(async (req, res) => {
     const host = req.headers.host || "localhost:3000";
     const urlObj = new URL(`http://${host}${req.url}`);
 
-    const month = urlObj.searchParams.get("month");
     const appointmentTypeID = urlObj.searchParams.get("appointmentTypeID");
-    console.log("month:", month);
-    console.log("appointmentTypeID:", appointmentTypeID);
+    const month = urlObj.searchParams.get("month"); // optional
 
-    if (!month || !appointmentTypeID) {
+    if (!appointmentTypeID) {
       return sendJSON(res, 400, {
         success: false,
-        message: "month and appointmentTypeID are required"
+        message: "appointmentTypeID is required"
       });
     }
 
     try {
-      const dates = await getAcuityAvailability(month, appointmentTypeID);
-      console.log("Acuity Availability:", dates);
+      const availability = await getAcuityAvailability(
+        appointmentTypeID,
+        month
+      );
+
       return sendJSON(res, 200, {
         success: true,
-        dates
+        availability
       });
 
     } catch (err) {
