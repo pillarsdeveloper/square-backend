@@ -682,6 +682,10 @@ const server = http.createServer(async (req, res) => {
           }
         };
 
+        console.log("➡️ Square Payment SQUARE_URL:", SQUARE_URL);
+        console.log("➡️ Square Payment ACCESS_TOKEN:", ACCESS_TOKEN);
+        console.log("Using Location:", LOCATION_ID);
+
         const response = await fetch(SQUARE_URL, {
           method: "POST",
           headers: {
