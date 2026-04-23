@@ -44,45 +44,109 @@ function getRequestBody(req) {
 // --------------------------------------------
 // Create Appointment (Only for normal booking)
 // --------------------------------------------
-async function createAcuityAppointment(booking) {
-  const auth = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
+// async function createAcuityAppointment(booking) {
+//   const auth = Buffer.from(`${ACUITY_USER_ID}:${ACUITY_API_KEY}`).toString("base64");
 
-  const appointmentPayload = {
-    appointmentTypeID: booking.appointmentTypeID,
-    datetime: booking.datetime,
-    firstName: booking.firstName,
-    lastName: booking.lastName,
-    email: booking.email,
-    phone: booking.phone,
-    fields: [
-      { id: 15140822, value: "yes" } // Terms field
-    ]
+//   const appointmentPayload = {
+//     appointmentTypeID: booking.appointmentTypeID,
+//     datetime: booking.datetime,
+//     firstName: booking.firstName,
+//     lastName: booking.lastName,
+//     email: booking.email,
+//     phone: booking.phone,
+//     fields: [
+//       { id: 15140822, value: "yes" } // Terms field
+//     ]
+//   };
+
+//   // ✅ ADDONS — normalize safely
+//   if (booking.addonIDs) {
+//     if (Array.isArray(booking.addonIDs)) {
+//       appointmentPayload.addonIDs = booking.addonIDs.map(Number);
+//     } else {
+//       // single addon as string/number → convert to array
+//       appointmentPayload.addonIDs = [Number(booking.addonIDs)];
+//     }
+//   }
+
+
+//   console.log("Calling Acuity Appointment Creation:", appointmentPayload);
+//   const response = await fetch("https://acuityscheduling.com/api/v1/appointments", {
+//     method: "POST",
+//     headers: {
+//       "Authorization": `Basic ${auth}`,
+//       "Content-Type": "application/json"
+//     },
+//     body: JSON.stringify(appointmentPayload)
+//   });
+
+//   const json = await response.json();
+
+//   if (!response.ok) throw new Error(json?.message || "Acuity Appointment Creation Failed");
+
+//   return json;
+// }
+
+async function createAcuityAppointment(booking) {
+  const auth = Buffer.from(
+    `${ACUITY_USER_ID}:${ACUITY_API_KEY}`
+  ).toString("base64");
+
+  const payload = {
+    owner: ACUITY_OWNER_ID,
+    smsOptIn: true,
+
+    appointments: [
+      {
+        appointmentTypeId: booking.appointmentTypeID,
+        datetime: booking.datetime,
+        firstName: booking.firstName,
+        lastName: booking.lastName,
+        email: booking.email,
+        phone: booking.phone,
+        timezone: "America/Denver",
+        calendarId: "any",
+
+        // ✅ addons
+        addonIds: booking.addonIDs
+          ? Array.isArray(booking.addonIDs)
+            ? booking.addonIDs.map(Number)
+            : [Number(booking.addonIDs)]
+          : []
+      }
+    ],
+
+    // ✅ correct fields format
+    fields: {
+      "field-15140822": "yes"
+    }
   };
 
-  // ✅ ADDONS — normalize safely
-  if (booking.addonIDs) {
-    if (Array.isArray(booking.addonIDs)) {
-      appointmentPayload.addonIDs = booking.addonIDs.map(Number);
-    } else {
-      // single addon as string/number → convert to array
-      appointmentPayload.addonIDs = [Number(booking.addonIDs)];
-    }
+  // ✅ coupon apply
+  if (booking.couponCode) {
+    payload.certificateCode = booking.couponCode;
   }
 
+  console.log("Scheduling API Payload:", payload);
 
-  console.log("Calling Acuity Appointment Creation:", appointmentPayload);
-  const response = await fetch("https://acuityscheduling.com/api/v1/appointments", {
-    method: "POST",
-    headers: {
-      "Authorization": `Basic ${auth}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(appointmentPayload)
-  });
+  const response = await fetch(
+    "https://app.acuityscheduling.com/api/scheduling/v1/appointments",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${auth}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    }
+  );
 
   const json = await response.json();
 
-  if (!response.ok) throw new Error(json?.message || "Acuity Appointment Creation Failed");
+  if (!response.ok) {
+    console.error(json);
+    throw new Error(json?.message || "Acuity Scheduling Failed");
+  }
 
   return json;
 }
